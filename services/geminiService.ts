@@ -107,14 +107,14 @@ export const analyzeContent = async (
   pdfFile: File
 ): Promise<AuditResult[]> => {
   // 1. Check for API Key
-  if (!process.env.API_KEY) {
+  if (!import.meta.env.VITE_GEMINI_API_KEY) {
     console.warn("No API_KEY found. Returning DEMO data.");
     await new Promise(resolve => setTimeout(resolve, 1500));
     return DEMO_AUDIT_RESULTS;
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     
     // 2. Validate File Sizes (Simple check to prevent browser crash on base64)
     if (videoFile.size > 20 * 1024 * 1024) {
