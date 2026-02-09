@@ -4,63 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CivicLens - Autonomous Auditor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              brand: {
-                900: '#0f172a',
-                800: '#1e293b',
-                700: '#334155',
-                500: '#3b82f6',
-                400: '#60a5fa',
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      /* Custom scrollbar for a cleaner tech look */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #1e293b; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #475569; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #64748b; 
-      }
-      .glass-panel {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(148, 163, 184, 0.1);
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "path": "https://esm.sh/path@^0.12.7",
-    "express": "https://esm.sh/express@^5.2.1",
-    "multer": "https://esm.sh/multer@^2.0.2",
-    "fs": "https://esm.sh/fs@^0.0.1-security"
-  }
-}
-</script>
-</head>
+  </head>
   <body class="bg-slate-950 text-slate-100 antialiased h-screen overflow-hidden selection:bg-blue-500 selection:text-white">
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
