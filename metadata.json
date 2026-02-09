@@ -1,0 +1,5 @@
+{
+  "name": "CivicLens",
+  "description": "An autonomous auditor that compares video promises with official PDF documents using Gemini 3 reasoning.",
+  "requestFramePermissions": []
+}
