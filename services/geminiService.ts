@@ -1,16 +1,29 @@
-import { GoogleGenAI, Type, Part } from "@google/genai";
+import { GoogleGenAI, Type, Part, PartMediaResolutionLevel } from "@google/genai";
 import { SourceType, SummaryResult, TokenUsage } from "../types";
 import { DEMO_VIDEO_SUMMARY, DEMO_PDF_SUMMARY, DEMO_YOUTUBE_SUMMARY } from "./demoData";
+
+// CivicLens only needs spoken claims, not visual detail, so video (both
+// uploaded and YouTube) is processed at Gemini's lowest tokenization quality
+// and a reduced frame-sampling rate. Audio is transcribed independently of
+// fps, so this is a large token/cost cut with no meaningful loss for this
+// app's use case. See README's "Token usage" section for the measured rate.
+const VIDEO_FPS = 0.5;
+const applyLowQualityVideoSettings = (part: Part): Part => ({
+  ...part,
+  mediaResolution: { level: PartMediaResolutionLevel.MEDIA_RESOLUTION_LOW },
+  videoMetadata: { fps: VIDEO_FPS },
+});
 
 // Below this size, send the file inline in the request (fast, one round trip).
 // Above it, use the Files API (upload -> poll until ACTIVE -> reference by URI),
 // which is what lets us go past a request's inline-payload ceiling.
 const INLINE_THRESHOLD_BYTES = 15 * 1024 * 1024;
 
-// App-level ceiling, well under the Files API's own 2GB/file limit. Keeps
-// browser upload time and memory use reasonable for a client-only hackathon
-// MVP; raise FILE_API_MAX_BYTES if you need bigger clips.
-export const FILE_API_MAX_BYTES = 200 * 1024 * 1024;
+// App-level ceiling, well under the Files API's own 2GB/file limit. This is
+// about upload bandwidth/browser memory, not token cost - the low-quality
+// video settings below already keep token cost cheap regardless of file
+// size, so this can be generous. Raise FILE_API_MAX_BYTES if you need bigger.
+export const FILE_API_MAX_BYTES = 500 * 1024 * 1024;
 
 // Helper to convert a small file to base64 for inline requests.
 const fileToBase64 = async (file: File): Promise<string> => {
@@ -44,14 +57,12 @@ const uploadAndAwaitActive = async (ai: GoogleGenAI, file: File) => {
   return uploaded;
 };
 
-const buildFilePart = async (ai: GoogleGenAI, file: File): Promise<Part> => {
-  if (file.size <= INLINE_THRESHOLD_BYTES) {
-    const base64 = await fileToBase64(file);
-    return { inlineData: { mimeType: file.type, data: base64 } };
-  }
+const buildFilePart = async (ai: GoogleGenAI, file: File, sourceType: SourceType): Promise<Part> => {
+  const part: Part = file.size <= INLINE_THRESHOLD_BYTES
+    ? { inlineData: { mimeType: file.type, data: await fileToBase64(file) } }
+    : { fileData: { fileUri: (await uploadAndAwaitActive(ai, file)).uri, mimeType: file.type } };
 
-  const uploaded = await uploadAndAwaitActive(ai, file);
-  return { fileData: { fileUri: uploaded.uri, mimeType: uploaded.mimeType } };
+  return sourceType === 'video' ? applyLowQualityVideoSettings(part) : part;
 };
 
 const getSystemInstruction = (sourceType: SourceType) => {
@@ -182,7 +193,7 @@ export const summarizeContent = async (file: File): Promise<SummaryResult> => {
 
   try {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-    const part = await buildFilePart(ai, file);
+    const part = await buildFilePart(ai, file, sourceType);
     return await runSummary(ai, sourceType, part, sourceType === 'pdf' ? 'PDF' : 'VIDEO');
   } catch (error: any) {
     return rethrowFriendly(error);
@@ -203,7 +214,7 @@ export const summarizeYoutubeUrl = async (url: string): Promise<SummaryResult> =
 
   try {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-    const part: Part = { fileData: { fileUri: trimmed } };
+    const part = applyLowQualityVideoSettings({ fileData: { fileUri: trimmed } });
     return await runSummary(ai, 'youtube', part, 'VIDEO');
   } catch (error: any) {
     return rethrowFriendly(error);

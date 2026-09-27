@@ -41,24 +41,31 @@ CivicLens is a hackathon MVP that summarizes the key factual points in a meeting
 
 ### File size handling
 
-Small files (≤15MB) are sent inline in the request. Larger ones are uploaded through Gemini's [Files API](https://ai.google.dev/gemini-api/docs/files) (`ai.files.upload`), polled until Google finishes processing them server-side, then referenced by URI — this is what lets the app go past a single request's inline-payload ceiling. The app caps uploads at `FILE_API_MAX_BYTES` in `services/geminiService.ts` (200MB by default) to keep browser upload time and memory use reasonable; Google's own Files API supports up to 2GB per file, so raise that constant if you need bigger clips.
+Small files (≤15MB) are sent inline in the request. Larger ones are uploaded through Gemini's [Files API](https://ai.google.dev/gemini-api/docs/files) (`ai.files.upload`), polled until Google finishes processing them server-side, then referenced by URI — this is what lets the app go past a single request's inline-payload ceiling. The app caps uploads at `FILE_API_MAX_BYTES` in `services/geminiService.ts` (500MB by default) to keep browser upload time and memory use reasonable; Google's own Files API supports up to 2GB per file, so raise that constant if you need bigger clips. This cap is only about upload bandwidth/browser memory — see below for why it isn't a token-cost concern.
+
+### Video quality / "compression"
+
+The app **cannot** re-encode or shrink a YouTube video's bytes — a YouTube URL is passed straight to Gemini as a `fileData` part, and Gemini fetches and processes it server-side; the app never receives the video's bytes at all. (Building a YouTube downloader to get bytes to compress would mean circumventing YouTube's own restrictions on programmatic downloading, which this project won't do.)
+
+Instead, both uploaded video and YouTube video are processed at Gemini's lowest tokenization quality: `mediaResolution: MEDIA_RESOLUTION_LOW` plus a reduced frame-sampling rate (`fps: 0.5`, i.e. one visual frame every 2 seconds instead of every 1). Since CivicLens only needs spoken claims, not visual detail, and audio is transcribed independently of the video's frame-sampling rate, this is effectively free quality-wise for this app's use case while cutting token cost — and critically, it's a *request setting*, not a file transform, so it applies identically whether the video came from an upload or a YouTube link. This is why the app doesn't do client-side video transcoding: it wouldn't help YouTube at all, and Gemini's own setting already gets most of the benefit for uploads without a heavy new dependency (e.g. ffmpeg.wasm).
+
+PDF pages are left at full quality — reducing PDF resolution risks losing exactly the small print (budget tables, line items) this app exists to check.
+
+### Token usage
+
+*   **Video** (uploaded or YouTube, at this app's reduced-quality settings): empirically ~60-80 tokens/second, measured against real clips — noticeably lower than Gemini's default settings. The app shows a rough pre-run estimate for uploaded video based on its actual duration; real content will vary.
+*   **PDF** (full quality): ~258 tokens/page, per Gemini's [document processing docs](https://ai.google.dev/gemini-api/docs/document-processing).
+*   After every real run, the exact token count (prompt + thinking + output) returned by the API is shown in the UI — that's the authoritative number, not the pre-run estimate.
+
+Free-tier request/token limits are per-account and change over time, so this app doesn't hardcode them. Check your current limits at [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit).
 
 ### YouTube links
 
 A YouTube URL is passed directly to Gemini as a `fileData` part — no download or upload happens. Per [Google's docs](https://ai.google.dev/gemini-api/docs/video-understanding), only **public** videos are supported (not private/unlisted), and this is currently a preview capability, so behavior and quotas may change.
 
-### Token usage
-
-Gemini tokenizes uploaded media roughly as follows (at default resolution, per the [video understanding](https://ai.google.dev/gemini-api/docs/video-understanding) and [document processing](https://ai.google.dev/gemini-api/docs/document-processing) docs):
-*   **Video**: ~300 tokens/second. The app shows a rough pre-run estimate for uploaded video based on its actual duration.
-*   **PDF**: ~258 tokens/page.
-*   After every real run, the exact token count (prompt + thinking + output) returned by the API is shown in the UI — that's the authoritative number, not the pre-run estimate.
-
-Free-tier request/token limits are per-account and change over time, so this app doesn't hardcode them. Check your current limits at [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit).
-
 ## Limitations (Hackathon MVP)
 
-*   Uploads are capped at 200MB app-side (see above); larger needs a config change, not a code rewrite.
+*   Uploads are capped at 500MB app-side (see above); larger needs a config change, not a code rewrite.
 *   Video/YouTube navigation relies on the source's own player seeking (HTML5 `<video>`, or reloading the YouTube embed with a `start=` param).
 *   No persistent database; results are transient.
 *   Free-tier API keys are rate-limited; heavy use may need a billed key or may hit YouTube-specific preview quotas.

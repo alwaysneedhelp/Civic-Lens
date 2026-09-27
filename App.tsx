@@ -9,11 +9,12 @@ import { DEMO_VIDEO_SUMMARY, DEMO_PDF_SUMMARY, DEMO_YOUTUBE_SUMMARY } from './se
 
 type InputMode = 'file' | 'youtube';
 
-// Gemini tokenizes video at roughly this many tokens/second at default
-// resolution (see https://ai.google.dev/gemini-api/docs/video-understanding).
-// Used only to show a rough pre-run estimate; the real number is reported
-// from the API's usageMetadata after each run.
-const VIDEO_TOKENS_PER_SECOND = 300;
+// Empirically measured (not documented) rate for video at the app's
+// LOW mediaResolution + 0.5fps settings (see services/geminiService.ts) -
+// roughly 60-75 tokens/sec observed against real clips, rounded up for a
+// safety margin. Used only for a rough pre-run estimate; the real number
+// is reported from the API's usageMetadata after each run.
+const VIDEO_TOKENS_PER_SECOND = 80;
 
 export default function App() {
   const [mode, setMode] = useState<InputMode>('file');
@@ -105,10 +106,10 @@ export default function App() {
   const canSummarize = mode === 'file' ? !!file : isYoutubeUrl(youtubeUrl);
 
   const tokenEstimateNote = (() => {
-    if (mode === 'youtube') return 'Token cost scales with video length (~300 tokens/sec at default resolution).';
+    if (mode === 'youtube') return `Token cost scales with video length (~${VIDEO_TOKENS_PER_SECOND}/sec at this app's reduced-quality video settings).`;
     if (sourceType === 'pdf') return 'Gemini tokenizes PDFs at roughly ~258 tokens per page.';
     if (sourceType === 'video' && estimatedVideoTokens != null) {
-      return `Estimated ≤ ~${estimatedVideoTokens.toLocaleString()} tokens for this clip (~${VIDEO_TOKENS_PER_SECOND}/sec at default resolution).`;
+      return `Estimated ≤ ~${estimatedVideoTokens.toLocaleString()} tokens for this clip (~${VIDEO_TOKENS_PER_SECOND}/sec at this app's reduced-quality video settings).`;
     }
     return null;
   })();
