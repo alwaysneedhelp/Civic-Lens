@@ -1,35 +1,18 @@
-export interface NormalizedClaim {
-  project?: string;
-  amount?: number;
-  currency?: string;
-  date?: string;
-  status?: string;
-  [key: string]: any;
+export type SourceType = 'video' | 'pdf';
+
+export interface SummaryPoint {
+  locator: string; // e.g. "00:15" for video timestamps, "Page 3" for PDF
+  point: string;
 }
 
-export interface DocumentEvidence {
-  page: number;
-  text: string;
-}
-
-export type VerdictType = 'TRUE' | 'FALSE' | 'PARTIAL' | 'AMBIGUOUS';
-
-export interface AuditResult {
-  timestamp: string;
-  speaker_claim: string;
-  normalized_claim: NormalizedClaim;
-  document_evidence: DocumentEvidence;
-  verdict: VerdictType;
-  confidence: number;
-  reasoning: string;
+export interface SummaryResult {
+  sourceType: SourceType;
+  title: string;
+  overview: string;
+  points: SummaryPoint[];
 }
 
 export interface AnalysisState {
   status: 'idle' | 'analyzing' | 'complete' | 'error';
   error?: string;
-}
-
-export interface UploadedFiles {
-  video: File | null;
-  pdf: File | null;
 }

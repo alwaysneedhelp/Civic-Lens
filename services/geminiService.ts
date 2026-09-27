@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { AuditResult } from "../types";
-import { DEMO_AUDIT_RESULTS } from "./demoData";
+import { SourceType, SummaryResult } from "../types";
+import { DEMO_VIDEO_SUMMARY, DEMO_PDF_SUMMARY } from "./demoData";
 
 // Helper to convert file to base64
 const fileToGenerativePart = async (file: File): Promise<string> => {
@@ -17,112 +17,75 @@ const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-const SYSTEM_INSTRUCTION = `
-You are CivicLens, a STRICT autonomous auditor.
+const getSystemInstruction = (sourceType: SourceType) => `
+You are CivicLens, an autonomous summarizer for civic meeting media.
 
 *** CRITICAL INSTRUCTION: CLOSED WORLD ASSUMPTION ***
-1. You have NO knowledge of the outside world, history, or news. 
-2. You ONLY know what is explicitly contained in the uploaded VIDEO and PDF.
-3. If information is not in the files, it DOES NOT EXIST. Do not "fill in the blanks".
+1. You have NO knowledge of the outside world, history, or news.
+2. You ONLY know what is explicitly contained in the uploaded ${sourceType === 'video' ? 'VIDEO' : 'PDF'}.
+3. If information is not in the file, it DOES NOT EXIST. Do not "fill in the blanks".
 
 YOUR TASK:
-Compare the specific claims made in the VIDEO against the text in the PDF.
-
-PHASE 1: CONTENT MATCHING CHECK (MANDATORY)
-First, determine the specific topic of the VIDEO and the specific topic of the PDF.
-- If the VIDEO is about "Topic A" and the PDF is about "Topic B" (completely unrelated), you MUST STOP.
-- Do not attempt to force a comparison.
-
-IF UNRELATED:
-Return an array with exactly ONE object using this structure:
-{
-  "timestamp": "00:00",
-  "speaker_claim": "IRRELEVANT FILES DETECTED",
-  "normalized_claim": {
-    "video_topic": "[Insert 1-sentence summary of Video]",
-    "pdf_topic": "[Insert 1-sentence summary of PDF]",
-    "status": "mismatch"
-  },
-  "document_evidence": { 
-     "page": 1, 
-     "text": "The PDF covers [PDF Topic], while the Video discusses [Video Topic]. No overlap found." 
-  },
-  "verdict": "AMBIGUOUS",
-  "confidence": 1.0,
-  "reasoning": "The uploaded files are unrelated. I cannot compare [Video Topic] with [PDF Topic]."
-}
-
-PHASE 2: CLAIM VERIFICATION (Only if related)
-If the topics match (e.g., both about the "Downtown Project"):
-1. Transcribe factual claims from the video (Money, Dates, Status).
-2. Search the PDF for the *exact* corresponding line item.
-3. Compare them literaly.
-
-VERDICT RULES:
-- TRUE: The video claim matches the PDF text exactly.
-- FALSE: The video claim explicitly contradicts the PDF text.
-- PARTIAL: The details are mixed or partially correct.
-- AMBIGUOUS: The PDF does not contain the specific data point mentioned in the video.
+Produce a concise, factual summary of the uploaded ${sourceType === 'video' ? 'VIDEO' : 'PDF'}.
+1. Write a 2-4 sentence overview of what the file covers.
+2. Extract concrete factual points: decisions, dollar amounts, dates, project statuses, votes.
+3. For each point, include a locator:
+   ${sourceType === 'video'
+     ? '- The approximate timestamp where it is said, formatted "MM:SS".'
+     : '- The page number it appears on, formatted "Page N".'}
 
 OUTPUT FORMAT:
-Return ONLY the JSON array.
+Return ONLY the JSON object.
 `;
 
 const RESPONSE_SCHEMA = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      timestamp: { type: Type.STRING },
-      speaker_claim: { type: Type.STRING },
-      normalized_claim: { 
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    overview: { type: Type.STRING },
+    points: {
+      type: Type.ARRAY,
+      items: {
         type: Type.OBJECT,
         properties: {
-            project: { type: Type.STRING },
-            amount: { type: Type.NUMBER },
-            currency: { type: Type.STRING },
-            date: { type: Type.STRING },
-            status: { type: Type.STRING },
-            video_topic: { type: Type.STRING },
-            pdf_topic: { type: Type.STRING }
-        }
-      },
-      document_evidence: {
-        type: Type.OBJECT,
-        properties: {
-          page: { type: Type.INTEGER },
-          text: { type: Type.STRING }
-        }
-      },
-      verdict: { type: Type.STRING, enum: ["TRUE", "FALSE", "PARTIAL", "AMBIGUOUS"] },
-      confidence: { type: Type.NUMBER },
-      reasoning: { type: Type.STRING }
-    },
-    required: ["timestamp", "speaker_claim", "verdict", "reasoning", "confidence", "document_evidence", "normalized_claim"]
-  }
+          locator: { type: Type.STRING },
+          point: { type: Type.STRING }
+        },
+        required: ["locator", "point"]
+      }
+    }
+  },
+  required: ["title", "overview", "points"]
 };
 
-export const analyzeContent = async (
-  videoFile: File,
-  pdfFile: File
-): Promise<AuditResult[]> => {
+export const getSourceType = (file: File): SourceType | null => {
+  if (file.type.startsWith('video/')) return 'video';
+  if (file.type === 'application/pdf') return 'pdf';
+  return null;
+};
+
+export const summarizeContent = async (file: File): Promise<SummaryResult> => {
+  const sourceType = getSourceType(file);
+  if (!sourceType) {
+    throw new Error("Unsupported file type. Please upload a video (MP4) or a PDF.");
+  }
+
   // 1. Check for API Key
   if (!import.meta.env.VITE_GEMINI_API_KEY) {
     console.warn("No API_KEY found. Returning DEMO data.");
     await new Promise(resolve => setTimeout(resolve, 1500));
-    return DEMO_AUDIT_RESULTS;
+    return sourceType === 'video' ? DEMO_VIDEO_SUMMARY : DEMO_PDF_SUMMARY;
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
-    // 2. Validate File Sizes (Simple check to prevent browser crash on base64)
-    if (videoFile.size > 20 * 1024 * 1024) {
-        throw new Error("Video file too large for browser demo (>20MB). Please use a shorter clip.");
+    // 2. Validate File Size (Simple check to prevent browser crash on base64)
+    if (file.size > 20 * 1024 * 1024) {
+        throw new Error("File too large for browser demo (>20MB). Please use a shorter clip or smaller document.");
     }
 
-    const videoBase64 = await fileToGenerativePart(videoFile);
-    const pdfBase64 = await fileToGenerativePart(pdfFile);
+    const fileBase64 = await fileToGenerativePart(file);
 
     // "gemini-flash-latest" tracks Google's current free-tier Flash release,
     // so this keeps working on a no-cost AI Studio key without pinning a
@@ -137,27 +100,21 @@ export const analyzeContent = async (
           parts: [
             {
               inlineData: {
-                mimeType: pdfFile.type,
-                data: pdfBase64
+                mimeType: file.type,
+                data: fileBase64
               }
             },
             {
-              inlineData: {
-                mimeType: videoFile.type,
-                data: videoBase64
-              }
-            },
-            {
-              text: "Perform a forensic audit comparing the Video claims to the PDF text. IGNORE all external knowledge. If files are unrelated, report the mismatch immediately."
+              text: `Summarize this ${sourceType === 'video' ? 'VIDEO' : 'PDF'}. IGNORE all external knowledge.`
             }
           ]
         }
       ],
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: getSystemInstruction(sourceType),
         responseMimeType: "application/json",
         responseSchema: RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingBudget: 16000 } 
+        thinkingConfig: { thinkingBudget: 16000 }
       }
     });
 
@@ -165,16 +122,15 @@ export const analyzeContent = async (
     if (!text) throw new Error("No response from Gemini");
 
     const json = JSON.parse(text);
-    return json as AuditResult[];
+    return { sourceType, ...json } as SummaryResult;
 
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    
-    // IMPORTANT: Re-throw the error so the UI shows the error message 
+
+    // IMPORTANT: Re-throw the error so the UI shows the error message
     // instead of silently falling back to demo data.
-    // This fixes the 'random information' confusion.
     if (error.message && error.message.includes("400")) {
-        throw new Error("API Error (400). The files might be unreadable or the request was rejected. Details: " + error.message);
+        throw new Error("API Error (400). The file might be unreadable or the request was rejected. Details: " + error.message);
     }
     throw error;
   }

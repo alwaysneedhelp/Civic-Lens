@@ -1,82 +1,49 @@
-import { AuditResult } from '../types';
+import { SummaryResult } from '../types';
 
-export const DEMO_AUDIT_RESULTS: AuditResult[] = [
-  {
-    timestamp: "00:05",
-    speaker_claim: "We have fully allocated $500,000 to the Community Park renovation project this quarter.",
-    normalized_claim: {
-      project: "Community Park",
-      amount: 500000,
-      currency: "USD",
-      status: "allocated"
+export const DEMO_VIDEO_SUMMARY: SummaryResult = {
+  sourceType: 'video',
+  title: "City Council Meeting - Budget & Infrastructure Update",
+  overview: "The council reviews progress on three active civic projects: the Community Park renovation, the Downtown Bike Lane extension, and the Main Library solar installation.",
+  points: [
+    {
+      locator: "00:05",
+      point: "The speaker states $500,000 has been fully allocated to the Community Park renovation this quarter."
     },
-    document_evidence: {
-      page: 3,
-      text: "Budget Item 4.2: Community Park Renovation. Allocated: $50,000 for Q1 planning phase."
+    {
+      locator: "00:22",
+      point: "The Downtown Bike Lane extension is announced as completed last month."
     },
-    verdict: "FALSE",
-    confidence: 0.98,
-    reasoning: "The speaker claims $500,000 was allocated, but the official budget document clearly states only $50,000 was allocated for this period."
-  },
-  {
-    timestamp: "00:22",
-    speaker_claim: "The downtown bike lane extension was completed last month.",
-    normalized_claim: {
-      project: "Downtown Bike Lane",
-      status: "completed",
-      date: "last month"
+    {
+      locator: "00:45",
+      point: "The library roof solar panel installation is moving forward with a contractor selected."
     },
-    document_evidence: {
-      page: 1,
-      text: "Infrastructure Update: Downtown Bike Lane extension is currently 80% complete. Expected completion: Next Month."
+    {
+      locator: "01:10",
+      point: "The new school wing construction timeline is described as roughly on track."
+    }
+  ]
+};
+
+export const DEMO_PDF_SUMMARY: SummaryResult = {
+  sourceType: 'pdf',
+  title: "Quarterly Budget & Infrastructure Report",
+  overview: "The official report documents partial funding for the Community Park renovation, an in-progress bike lane extension, and a pending state grant application.",
+  points: [
+    {
+      locator: "Page 3",
+      point: "Budget Item 4.2: Community Park Renovation is allocated $50,000 for the Q1 planning phase only."
     },
-    verdict: "FALSE",
-    confidence: 0.95,
-    reasoning: "The speaker claims completion, whereas the status report lists the project as 80% complete with a future expected completion date."
-  },
-  {
-    timestamp: "00:45",
-    speaker_claim: "We are moving forward with the solar panel installation on the library roof.",
-    normalized_claim: {
-      project: "Library Solar Panels",
-      status: "in_progress"
+    {
+      locator: "Page 1",
+      point: "The Downtown Bike Lane extension is listed as 80% complete, with completion expected next month."
     },
-    document_evidence: {
-      page: 5,
-      text: "Approved Projects: Main Library Solar Installation. Status: Contractor selected, work to commence pending weather."
+    {
+      locator: "Page 5",
+      point: "The Main Library Solar Installation has a contractor selected; work is pending weather."
     },
-    verdict: "TRUE",
-    confidence: 0.92,
-    reasoning: "The claim of moving forward aligns with the document's status of 'Approved' and 'Contractor selected'."
-  },
-  {
-    timestamp: "01:10",
-    speaker_claim: "The timeline for the new school wing is roughly on track.",
-    normalized_claim: {
-      project: "New School Wing",
-      status: "on_track"
-    },
-    document_evidence: {
-      page: 2,
-      text: "School Wing Annex: Construction delays due to supply chain. Revised timeline TBD."
-    },
-    verdict: "PARTIAL",
-    confidence: 0.85,
-    reasoning: "The speaker claims it is 'roughly on track', but the document notes 'delays' and a 'Revised timeline TBD', suggesting a discrepancy that isn't a direct falsehood but certainly not fully accurate."
-  },
-  {
-    timestamp: "01:30",
-    speaker_claim: "We expect the state grant to cover the remaining costs.",
-    normalized_claim: {
-      source: "State Grant",
-      coverage: "remaining costs"
-    },
-    document_evidence: {
-      page: 4,
-      text: "Funding Sources: Federal Grant (Confirmed), State Grant (Application Pending)."
-    },
-    verdict: "AMBIGUOUS",
-    confidence: 0.60,
-    reasoning: "The speaker states an expectation, and the document confirms an application is pending. It is not possible to verify if it will cover costs until the grant is awarded."
-  }
-];
+    {
+      locator: "Page 4",
+      point: "The State Grant covering remaining project costs is listed as an application still pending."
+    }
+  ]
+};

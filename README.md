@@ -1,6 +1,6 @@
-# CivicLens - Autonomous Auditor
+# CivicLens - Media Summarizer
 
-CivicLens is a hackathon MVP designed to automatically verify spoken claims in meeting videos against official PDF documents using Gemini's multimodal reasoning.
+CivicLens is a hackathon MVP that summarizes the key factual points in a meeting video or an official PDF document using Gemini's multimodal reasoning.
 
 ## Setup
 
@@ -24,18 +24,18 @@ CivicLens is a hackathon MVP designed to automatically verify spoken claims in m
 ## Usage
 
 1.  Open the web app.
-2.  Upload a **short video** (e.g., a city council meeting clip) in the Video slot.
-3.  Upload a **PDF** (e.g., a budget report) in the PDF slot.
-4.  Click **Run Autonomous Audit**.
-5.  Watch as Gemini 3 analyzes the audio/visuals and the text to generate verdicts.
+2.  Upload **either** a short video (e.g., a city council meeting clip) **or** a PDF (e.g., a budget report).
+3.  Click **Run Autonomous Summary**.
+4.  Watch as Gemini reads the file and produces an overview plus a list of factual points, each with a locator (a timestamp for video, a page number for PDF).
+5.  For video, click a locator to jump the player to that moment.
 
 ## Architecture
 
-*   **Frontend**: React + Tailwind CSS. Handles file inputs and displays the audit feed.
+*   **Frontend**: React + Tailwind CSS. Handles the single file input and displays the summary feed.
 *   **AI Engine**: Google Gemini, via the `gemini-flash-latest` alias.
     *   **Free tier**: This alias tracks Google's current Flash-tier release, which stays on the no-cost AI Studio free tier (rate-limited) rather than requiring a paid/allowlisted preview model.
-    *   **Reasoning**: Thinking budget enabled for deep verification.
-    *   **Multimodal**: Direct ingestion of Video (MP4) and Document (PDF) via the API.
+    *   **Reasoning**: Thinking budget enabled for deep extraction.
+    *   **Multimodal**: Direct ingestion of Video (MP4) or Document (PDF) via the API.
 *   **Backend**: Included in `backend/server.ts` for reference, but the React app is configured to use the Gemini SDK client-side for immediate demo reproducibility without server setup.
 
 ## Limitations (Hackathon MVP)

@@ -18,106 +18,57 @@ app.use(express.json());
 const apiKey = process.env.API_KEY || "";
 const ai = new GoogleGenAI({ apiKey });
 
-const SYSTEM_INSTRUCTION = `
-You are CivicLens, a STRICT autonomous auditor.
+const getSystemInstruction = (sourceType: 'video' | 'pdf') => `
+You are CivicLens, an autonomous summarizer for civic meeting media.
 
 *** CRITICAL INSTRUCTION: CLOSED WORLD ASSUMPTION ***
-1. You have NO knowledge of the outside world, history, or news. 
-2. You ONLY know what is explicitly contained in the uploaded VIDEO and PDF.
-3. If information is not in the files, it DOES NOT EXIST. Do not "fill in the blanks".
+1. You have NO knowledge of the outside world, history, or news.
+2. You ONLY know what is explicitly contained in the uploaded ${sourceType === 'video' ? 'VIDEO' : 'PDF'}.
+3. If information is not in the file, it DOES NOT EXIST. Do not "fill in the blanks".
 
 YOUR TASK:
-Compare the specific claims made in the VIDEO against the text in the PDF.
-
-PHASE 1: CONTENT MATCHING CHECK (MANDATORY)
-First, determine the specific topic of the VIDEO and the specific topic of the PDF.
-- If the VIDEO is about "Topic A" and the PDF is about "Topic B" (completely unrelated), you MUST STOP.
-- Do not attempt to force a comparison.
-
-IF UNRELATED:
-Return an array with exactly ONE object using this structure:
-{
-  "timestamp": "00:00",
-  "speaker_claim": "IRRELEVANT FILES DETECTED",
-  "normalized_claim": {
-    "video_topic": "[Insert 1-sentence summary of Video]",
-    "pdf_topic": "[Insert 1-sentence summary of PDF]",
-    "status": "mismatch"
-  },
-  "document_evidence": { 
-     "page": 1, 
-     "text": "The PDF covers [PDF Topic], while the Video discusses [Video Topic]. No overlap found." 
-  },
-  "verdict": "AMBIGUOUS",
-  "confidence": 1.0,
-  "reasoning": "The uploaded files are unrelated. I cannot compare [Video Topic] with [PDF Topic]."
-}
-
-PHASE 2: CLAIM VERIFICATION (Only if related)
-If the topics match (e.g., both about the "Downtown Project"):
-1. Transcribe factual claims from the video (Money, Dates, Status).
-2. Search the PDF for the *exact* corresponding line item.
-3. Compare them literaly.
-
-VERDICT RULES:
-- TRUE: The video claim matches the PDF text exactly.
-- FALSE: The video claim explicitly contradicts the PDF text.
-- PARTIAL: The details are mixed or partially correct.
-- AMBIGUOUS: The PDF does not contain the specific data point mentioned in the video.
+Produce a concise, factual summary of the uploaded ${sourceType === 'video' ? 'VIDEO' : 'PDF'}.
+1. Write a 2-4 sentence overview of what the file covers.
+2. Extract concrete factual points: decisions, dollar amounts, dates, project statuses, votes.
+3. For each point, include a locator:
+   ${sourceType === 'video'
+     ? '- The approximate timestamp where it is said, formatted "MM:SS".'
+     : '- The page number it appears on, formatted "Page N".'}
 
 OUTPUT FORMAT:
-Return ONLY the JSON array.
+Return ONLY the JSON object.
 `;
 
 const RESPONSE_SCHEMA = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      timestamp: { type: Type.STRING },
-      speaker_claim: { type: Type.STRING },
-      normalized_claim: { 
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    overview: { type: Type.STRING },
+    points: {
+      type: Type.ARRAY,
+      items: {
         type: Type.OBJECT,
         properties: {
-            project: { type: Type.STRING },
-            amount: { type: Type.NUMBER },
-            currency: { type: Type.STRING },
-            date: { type: Type.STRING },
-            status: { type: Type.STRING },
-            video_topic: { type: Type.STRING },
-            pdf_topic: { type: Type.STRING }
-        }
-      },
-      document_evidence: {
-        type: Type.OBJECT,
-        properties: {
-          page: { type: Type.INTEGER },
-          text: { type: Type.STRING }
-        }
-      },
-      verdict: { type: Type.STRING, enum: ["TRUE", "FALSE", "PARTIAL", "AMBIGUOUS"] },
-      confidence: { type: Type.NUMBER },
-      reasoning: { type: Type.STRING }
-    },
-    required: ["timestamp", "speaker_claim", "verdict", "reasoning", "confidence", "document_evidence", "normalized_claim"]
-  }
+          locator: { type: Type.STRING },
+          point: { type: Type.STRING }
+        },
+        required: ["locator", "point"]
+      }
+    }
+  },
+  required: ["title", "overview", "points"]
 };
 
-app.post('/api/analyze', upload.fields([{ name: 'video', maxCount: 1 }, { name: 'pdf', maxCount: 1 }]), async (req, res) => {
+app.post('/api/summarize', upload.single('file'), async (req, res) => {
     try {
-        const files = req.files as any;
-        
-        if (!files.video || !files.pdf) {
-            return res.status(400).json({ error: "Missing files" });
+        const uploaded = req.file;
+
+        if (!uploaded) {
+            return res.status(400).json({ error: "Missing file" });
         }
 
-        const videoPath = files.video[0].path;
-        const pdfPath = files.pdf[0].path;
-
-        // In a real backend, we might use the File API to upload large videos
-        // For this MVP, we read to buffer
-        const videoBuffer = fs.readFileSync(videoPath);
-        const pdfBuffer = fs.readFileSync(pdfPath);
+        const sourceType: 'video' | 'pdf' = uploaded.mimetype === 'application/pdf' ? 'pdf' : 'video';
+        const fileBuffer = fs.readFileSync(uploaded.path);
 
         // Free-tier Flash alias — see services/geminiService.ts for rationale.
         const model = "gemini-flash-latest";
@@ -130,37 +81,30 @@ app.post('/api/analyze', upload.fields([{ name: 'video', maxCount: 1 }, { name: 
                     parts: [
                         {
                             inlineData: {
-                                mimeType: "application/pdf",
-                                data: pdfBuffer.toString('base64')
+                                mimeType: uploaded.mimetype,
+                                data: fileBuffer.toString('base64')
                             }
                         },
                         {
-                            inlineData: {
-                                mimeType: "video/mp4",
-                                data: videoBuffer.toString('base64')
-                            }
-                        },
-                        {
-                            text: "Perform a forensic audit comparing the Video claims to the PDF text. IGNORE all external knowledge. If files are unrelated, report the mismatch immediately."
+                            text: `Summarize this ${sourceType === 'video' ? 'VIDEO' : 'PDF'}. IGNORE all external knowledge.`
                         }
                     ]
                 }
             ],
             config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
+                systemInstruction: getSystemInstruction(sourceType),
                 responseMimeType: "application/json",
                 responseSchema: RESPONSE_SCHEMA,
                 thinkingConfig: { thinkingBudget: 16000 }
             }
         });
 
-        fs.unlinkSync(videoPath);
-        fs.unlinkSync(pdfPath);
+        fs.unlinkSync(uploaded.path);
 
         const text = response.text;
         if (!text) throw new Error("No response");
-        
-        res.json(JSON.parse(text));
+
+        res.json({ sourceType, ...JSON.parse(text) });
 
     } catch (error) {
         console.error(error);
