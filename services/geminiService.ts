@@ -115,7 +115,7 @@ export const analyzeContent = async (
 
   try {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-    
+
     // 2. Validate File Sizes (Simple check to prevent browser crash on base64)
     if (videoFile.size > 20 * 1024 * 1024) {
         throw new Error("Video file too large for browser demo (>20MB). Please use a shorter clip.");
@@ -124,7 +124,10 @@ export const analyzeContent = async (
     const videoBase64 = await fileToGenerativePart(videoFile);
     const pdfBase64 = await fileToGenerativePart(pdfFile);
 
-    const model = "gemini-3-pro-preview"; 
+    // "gemini-flash-latest" tracks Google's current free-tier Flash release,
+    // so this keeps working on a no-cost AI Studio key without pinning a
+    // preview model that requires paid/allowlisted access.
+    const model = "gemini-flash-latest";
 
     const response = await ai.models.generateContent({
       model: model,

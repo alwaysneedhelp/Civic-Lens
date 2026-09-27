@@ -119,7 +119,8 @@ app.post('/api/analyze', upload.fields([{ name: 'video', maxCount: 1 }, { name: 
         const videoBuffer = fs.readFileSync(videoPath);
         const pdfBuffer = fs.readFileSync(pdfPath);
 
-        const model = "gemini-3-pro-preview";
+        // Free-tier Flash alias — see services/geminiService.ts for rationale.
+        const model = "gemini-flash-latest";
 
         const response = await ai.models.generateContent({
             model: model,
