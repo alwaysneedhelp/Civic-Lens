@@ -42,6 +42,10 @@ export default function App() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
+    // Reset so selecting the same file again (or re-picking after an error)
+    // still fires this handler - browsers only emit `change` when the
+    // input's value actually differs from before.
+    e.target.value = '';
     if (!selected) return;
 
     const type = getSourceType(selected);
