@@ -24,6 +24,26 @@ export const DEMO_VIDEO_SUMMARY: SummaryResult = {
   ]
 };
 
+export const DEMO_YOUTUBE_SUMMARY: SummaryResult = {
+  sourceType: 'youtube',
+  title: "City Council Meeting Livestream - Q1 Recap",
+  overview: "The recorded livestream covers the council's review of the Community Park renovation budget, the Downtown Bike Lane extension, and the library solar panel project.",
+  points: [
+    {
+      locator: "02:14",
+      point: "The chair confirms $500,000 was allocated to the Community Park renovation this quarter."
+    },
+    {
+      locator: "07:41",
+      point: "A council member reports the Downtown Bike Lane extension was completed last month."
+    },
+    {
+      locator: "15:03",
+      point: "Staff confirm the library roof solar installation is moving forward with a contractor selected."
+    }
+  ]
+};
+
 export const DEMO_PDF_SUMMARY: SummaryResult = {
   sourceType: 'pdf',
   title: "Quarterly Budget & Infrastructure Report",

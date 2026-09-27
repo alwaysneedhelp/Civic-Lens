@@ -46,6 +46,14 @@ const SummaryFeed: React.FC<SummaryFeedProps> = ({ result, status, onSeek }) => 
                 </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{result.overview}</p>
+            {result.usage?.totalTokenCount != null && (
+                <p className="mt-2 text-xs font-mono text-slate-600">
+                    Tokens used: {result.usage.totalTokenCount.toLocaleString()}
+                    {' '}(prompt {result.usage.promptTokenCount?.toLocaleString() ?? 0}
+                    {' + '}thinking {result.usage.thoughtsTokenCount?.toLocaleString() ?? 0}
+                    {' + '}output {result.usage.candidatesTokenCount?.toLocaleString() ?? 0})
+                </p>
+            )}
         </div>
 
         {result.points.map((point, idx) => (

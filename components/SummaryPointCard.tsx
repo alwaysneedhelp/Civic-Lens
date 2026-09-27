@@ -11,7 +11,7 @@ const SummaryPointCard: React.FC<SummaryPointCardProps> = ({ point, sourceType, 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 mb-4 transition-all duration-200 hover:shadow-lg hover:border-slate-700">
       <div className="flex items-center gap-3">
-        {sourceType === 'video' ? (
+        {sourceType !== 'pdf' ? (
           <button
               onClick={() => onClickLocator(point.locator)}
               className="font-mono text-sm bg-slate-900/50 px-2 py-1 rounded hover:bg-slate-900 text-blue-400 transition-colors"

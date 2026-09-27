@@ -3,9 +3,10 @@ import React, { useRef, useEffect } from 'react';
 interface VideoSectionProps {
   videoFile: File | null;
   seekToTimestamp: string | null;
+  onDuration?: (seconds: number) => void;
 }
 
-const VideoSection: React.FC<VideoSectionProps> = ({ videoFile, seekToTimestamp }) => {
+const VideoSection: React.FC<VideoSectionProps> = ({ videoFile, seekToTimestamp, onDuration }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
 
@@ -45,11 +46,12 @@ const VideoSection: React.FC<VideoSectionProps> = ({ videoFile, seekToTimestamp 
   return (
     <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-slate-800">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video 
+        <video
             ref={videoRef}
-            src={videoUrl || ""} 
+            src={videoUrl || ""}
             className="w-full h-full object-contain"
             controls
+            onLoadedMetadata={() => onDuration?.(videoRef.current?.duration || 0)}
         />
         <div className="absolute top-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-xs font-mono text-white/70 pointer-events-none">
             {videoFile.name}
